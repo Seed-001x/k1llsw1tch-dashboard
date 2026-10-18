@@ -548,6 +548,7 @@ td{padding:9px 8px 9px 0;border-top:1px solid var(--rule2)} td:last-child,th:las
     <button role="tab" data-v="signals" aria-selected="false"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M7.5 7.5a6.4 6.4 0 0 0 0 9M16.5 7.5a6.4 6.4 0 0 1 0 9M4.5 4.5a10.6 10.6 0 0 0 0 15M19.5 4.5a10.6 10.6 0 0 1 0 15"/></svg>Signals</button>
     <button role="tab" data-v="scans" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M3 12h18"/></svg>Scans</button>
     <button role="tab" data-v="lab" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v5.5L5.6 18a2.4 2.4 0 0 0 2.1 3.5h8.6a2.4 2.4 0 0 0 2.1-3.5L14 8.5V3"/><path d="M7.5 15h9"/></svg>LAB</button>
+    <button role="tab" data-v="settings" id="tab-settings" aria-selected="false" hidden><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M19 12a7 7 0 0 0-.14-1.4l2-1.55-2-3.46-2.36.95A7 7 0 0 0 14.1 5.1L13.7 2.6h-3.4L9.9 5.1a7 7 0 0 0-2.4 1.44l-2.36-.95-2 3.46 2 1.55a7 7 0 0 0 0 2.8l-2 1.55 2 3.46 2.36-.95a7 7 0 0 0 2.4 1.44l.4 2.5h3.4l.4-2.5a7 7 0 0 0 2.4-1.44l2.36.95 2-3.46-2-1.55c.1-.45.14-.92.14-1.4Z"/></svg>Settings</button>
   </nav>
 
   <!-- NOW -->
@@ -829,6 +830,33 @@ td{padding:9px 8px 9px 0;border-top:1px solid var(--rule2)} td:last-child,th:las
      </div>
     </div>
    </div>
+  </section>
+
+  <!-- SETTINGS (owner-only: this tab's button stays hidden until the browser holds the
+       manage key, and the bot's /settings API refuses reads and writes without it) -->
+  <section class="view" id="v-settings">
+    <style>
+      #tab-settings[hidden]{display:none !important}
+      #setRoot .scard{background:var(--panel);border:1px solid var(--rule);border-radius:12px;padding:14px 16px;margin-bottom:14px}
+      #setRoot h3{margin:0 0 6px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+      #setRoot .srow{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--rule)}
+      #setRoot .srow:last-child{border-bottom:0}
+      #setRoot .srow label{flex:1;min-width:0}
+      #setRoot .srow label small{display:block;color:var(--faint);font-size:11px}
+      #setRoot .srow input[type=number]{width:112px;background:var(--panel2);border:1px solid var(--rule);border-radius:8px;color:var(--text);padding:7px 9px;font:inherit}
+      #setRoot .srow input[type=checkbox]{width:22px;height:22px;accent-color:#7c5cff}
+      #setRoot .envnote{color:var(--faint);font-size:11px;white-space:nowrap}
+      #setRoot .mod{color:#ffc15e;font-size:11px;white-space:nowrap}
+      #setRoot .sbtn{background:var(--panel2);border:1px solid var(--rule);color:var(--text);border-radius:99px;padding:8px 16px;font:600 13px/1 inherit;cursor:pointer}
+      #setRoot .sbtn.primary{background:#7c5cff;border-color:#7c5cff;color:#fff}
+      #setRoot .sbtn.danger{border-color:#ff5d7b;color:#ff5d7b}
+      #setRoot .sbtn:disabled{opacity:.5;cursor:wait}
+      #setRoot .kv{display:flex;gap:18px;flex-wrap:wrap;color:var(--dim);font-size:13px}
+      #setRoot .kv b{color:var(--text);font-weight:600}
+    </style>
+    <div class="rm-title">Settings</div>
+    <div id="setRoot"><p class="foot">Loading…</p></div>
+    <p class="foot">Changes apply live — no restart — and are saved on the bot, so they survive deploys and restarts. The Render env stays underneath as the baseline; ↺ returns a dial to it. Only a browser holding your manage key can see or move any of this.</p>
   </section>
 
   <div class="foot" id="foot"></div>
@@ -2588,6 +2616,136 @@ if (labOn()) window.LabStart();
   let nowOn=$('v-now').classList.contains('on');new MutationObserver(()=>{const on=$('v-now').classList.contains('on');if(on&&!nowOn&&PC()){resize();frame(performance.now()/1000)}nowOn=on}).observe($('v-now'),{attributes:true,attributeFilter:['class']});
   window.KS={pulse,live:LIVE};
   state='';syncState();
+})();
+</script>
+
+<script>
+/* ---------- SETTINGS TAB (owner-only) ----------
+   The tab button stays hidden until this browser holds the manage key
+   (localStorage edgebot_admin — the same key the write buttons use), and
+   the bot's /settings API refuses reads and writes without it, so the
+   dials are invisible to anyone else. Rendering is driven entirely by
+   the API's schema view: this page hardcodes no dial list. */
+(function () {
+  const tabBtn = document.getElementById('tab-settings');
+  const rootEl = () => document.getElementById('setRoot');
+  const hasKey = () => !!store.get('edgebot_admin');
+  const reveal = () => { if (tabBtn) tabBtn.hidden = !hasKey(); };
+  reveal();
+  document.addEventListener('click', reveal); // a key stored by any earlier write unlocks the tab
+
+  async function getSettings() {
+    const r = await fetch(API + '/settings?t=' + Date.now(), { cache: 'no-store', headers: { 'x-admin-key': store.get('edgebot_admin') || '' } });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }
+
+  function renderLocked(msg) {
+    rootEl().innerHTML = '<div class="scard"><h3>Locked</h3>'
+      + '<p style="color:var(--dim)">' + (msg ? esc(msg) + '<br>' : '') + 'This tab is tied to your manage key. Enter it once on this device and the tab stays yours.</p>'
+      + '<button class="sbtn primary" id="setUnlock">Unlock with manage key</button></div>';
+    document.getElementById('setUnlock').addEventListener('click', () => {
+      const k = prompt('Manage key — only you have it. It stays on this device:');
+      if (k) { store.set('edgebot_admin', k.trim()); reveal(); window.SettingsStart(); }
+    });
+  }
+
+  function fmtVal(v) { return v == null ? '—' : String(v); }
+
+  function renderSettings(d) {
+    const risk = d.risk || {};
+    const groups = [];
+    for (const s of d.settings) if (!groups.includes(s.group)) groups.push(s.group);
+    let h = '';
+    // Safety panel: halt controls + fail-safe state + the re-arm button
+    h += '<div class="scard"><h3>Safety</h3>'
+      + '<div class="kv">'
+      + '<span>Status <b>' + (d.halted ? 'HALTED' : 'RUNNING') + '</b></span>'
+      + '<span>Wallet <b>' + (d.balanceSol == null ? '—' : sol(d.balanceSol) + ' SOL') + '</b></span>'
+      + '<span>Day P&amp;L <b>' + signed(risk.dayPnlSol || 0) + ' SOL</b></span>'
+      + '<span>Drop-halt baseline <b>' + (risk.haltBalBaseline == null ? 'not armed' : sol(risk.haltBalBaseline) + ' SOL') + '</b></span>'
+      + '<span>Start equity <b>' + (risk.startEquitySol == null ? '—' : sol(risk.startEquitySol) + ' SOL') + '</b></span>'
+      + '<span>Loss streak <b>' + (risk.lossStreak || 0) + '</b></span>'
+      + '</div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">'
+      + (d.halted
+        ? '<button class="sbtn primary" id="setResume">Resume bot</button>'
+        : '<button class="sbtn danger" id="setHalt">Halt bot</button>')
+      + '<button class="sbtn" id="setRearm">Re-arm fail-safe at current balance</button>'
+      + '</div>'
+      + '<p style="color:var(--faint);font-size:12px;margin:10px 0 0">Re-arm zeroes the day counters and re-bases the drop-halt and equity-kill anchors at the wallet balance right now — the fail-safe then guards the money that is actually there.</p>'
+      + '</div>';
+    // Dial groups
+    for (const g of groups) {
+      h += '<div class="scard"><h3>' + esc(g) + '</h3>';
+      for (const s of d.settings.filter(x => x.group === g)) {
+        const ctl = s.type === 'toggle'
+          ? '<input type="checkbox" data-setkey="' + s.key + '"' + (s.value ? ' checked' : '') + '>'
+          : '<input type="number" data-setkey="' + s.key + '" value="' + fmtVal(s.value) + '"' + (s.min != null ? ' min="' + s.min + '"' : '') + (s.max != null ? ' max="' + s.max + '"' : '') + ' step="' + (s.type === 'int' ? '1' : 'any') + '">';
+        h += '<div class="srow"><label>' + esc(s.label) + (s.hint ? '<small>' + esc(s.hint) + '</small>' : '') + '</label>'
+          + (s.overridden ? '<span class="mod">● modified</span>' : '')
+          + '<span class="envnote">env ' + fmtVal(s.envValue) + '</span>'
+          + ctl
+          + (s.overridden ? '<button class="sbtn" data-resetkey="' + s.key + '" title="Back to the env value">↺</button>' : '')
+          + '</div>';
+      }
+      h += '</div>';
+    }
+    h += '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="sbtn primary" id="setSave">Save changes</button>'
+      + '<button class="sbtn" id="setLock">Lock this device</button></div>';
+    rootEl().innerHTML = h;
+
+    const haltBtn = document.getElementById('setHalt');
+    if (haltBtn) haltBtn.addEventListener('click', async (e) => { e.target.disabled = true; const r = await apiPost('/halt', {}); flash(r.ok ? 'Bot halted — no new entries.' : 'Halt failed: HTTP ' + r.status); window.SettingsStart(); });
+    const resBtn = document.getElementById('setResume');
+    if (resBtn) resBtn.addEventListener('click', async (e) => { e.target.disabled = true; const r = await apiPost('/resume', {}); flash(r.ok ? 'Bot resumed.' : 'Resume failed: HTTP ' + r.status); window.SettingsStart(); });
+    document.getElementById('setRearm').addEventListener('click', async (e) => {
+      if (!confirm('Re-arm the fail-safe at the current wallet balance? Day counters zero, and the drop-halt / equity-kill anchors re-base at the balance right now.')) return;
+      e.target.disabled = true;
+      const r = await apiPost('/settings', { action: 'rearm' });
+      if (r.ok) { const j = await r.json().catch(() => ({})); flash('Fail-safe re-armed at ' + (j.balanceSol == null ? 'the current balance' : sol(j.balanceSol) + ' SOL') + '.'); }
+      else flash('Re-arm failed: HTTP ' + r.status);
+      window.SettingsStart();
+    });
+    document.querySelectorAll('[data-resetkey]').forEach(b => b.addEventListener('click', async () => {
+      b.disabled = true;
+      const r = await apiPost('/settings', { reset: [b.dataset.resetkey] });
+      flash(r.ok ? 'Back to the env value.' : 'Reset failed: HTTP ' + r.status);
+      window.SettingsStart();
+    }));
+    document.getElementById('setSave').addEventListener('click', async (e) => {
+      const values = {};
+      document.querySelectorAll('[data-setkey]').forEach(inp => {
+        const k = inp.dataset.setkey;
+        const spec = d.settings.find(x => x.key === k);
+        const v = inp.type === 'checkbox' ? (inp.checked ? 1 : 0) : Number(inp.value);
+        if (spec && v !== spec.value) values[k] = v;
+      });
+      if (!Object.keys(values).length) { flash('Nothing changed.'); return; }
+      e.target.disabled = true;
+      const r = await apiPost('/settings', { values });
+      if (r.ok) { const j = await r.json().catch(() => ({})); flash('Saved — live now, and kept for restarts.' + (j.errors && j.errors.length ? ' Rejected: ' + j.errors.join('; ') : '')); }
+      else { const j = await r.json().catch(() => ({})); flash('Save failed: ' + (j.error || 'HTTP ' + r.status)); }
+      window.SettingsStart();
+    });
+    document.getElementById('setLock').addEventListener('click', () => {
+      try { localStorage.removeItem('edgebot_admin'); } catch {}
+      reveal(); setView('now'); flash('Manage key removed from this device — Settings is hidden again.');
+    });
+  }
+
+  window.SettingsStart = async function () {
+    reveal();
+    if (!hasKey()) return renderLocked();
+    rootEl().innerHTML = '<p class="foot">Loading…</p>';
+    try { renderSettings(await getSettings()); }
+    catch (e) { renderLocked('The bot refused the saved key (' + e.message + '). Re-enter it to continue.'); }
+  };
+
+  new MutationObserver(() => {
+    if (document.getElementById('v-settings').classList.contains('on')) window.SettingsStart();
+  }).observe(document.getElementById('v-settings'), { attributes: true, attributeFilter: ['class'] });
+  if (document.getElementById('v-settings').classList.contains('on')) window.SettingsStart(); // restored view at boot
 })();
 </script>
 </body>
