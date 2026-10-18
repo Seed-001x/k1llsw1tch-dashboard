@@ -2739,7 +2739,11 @@ if (labOn()) window.LabStart();
     if (!hasKey()) return renderLocked();
     rootEl().innerHTML = '<p class="foot">Loading…</p>';
     try { renderSettings(await getSettings()); }
-    catch (e) { renderLocked('The bot refused the saved key (' + e.message + '). Re-enter it to continue.'); }
+    catch (e) {
+      if (String(e.message).includes('404')) renderLocked('Your key is fine — this bot does not have the Settings backend yet. It lands with the next bot deploy; the key you entered is saved on this device and the tab will open then.');
+      else if (String(e.message).includes('401')) renderLocked('The bot rejected the saved key. Re-enter it to continue.');
+      else renderLocked('Could not reach the bot (' + e.message + '). Try again in a moment.');
+    }
   };
 
   new MutationObserver(() => {
