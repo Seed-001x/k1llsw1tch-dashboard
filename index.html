@@ -796,6 +796,13 @@ td{padding:9px 8px 9px 0;border-top:1px solid var(--rule2)} td:last-child,th:las
       <div style="color:var(--lfaint);font-size:8px" id="lab-deBasis"></div>
       <div style="color:var(--lfaint);font-size:8px">record-only — nothing gates on these stamps · judged at ≥300 vetoed + ≥14 days · promotion is your call</div>
      </div>
+     <div class="lb-box" style="border-color:rgba(248,113,113,.45)">
+      <div class="lb-title" style="font-size:9px"><span>KILLSWITCH VETOES · shadow</span><small id="lab-vtTag"></small></div>
+      <div style="color:#8a93bf;font-size:9px">the 8 held Part-1 entry vetoes, evaluated in shadow on every stamped signal — fake-alive share, linked drain, hot 5m/1h prints, post-run bleed, fresh tops, falling knives. A firing is logged with its forward r15/r60; nothing is blocked. R1 (fake-alive) is judged at close — its share only exists over a hold — so its rows are taken trades with realized PnL.</div>
+      <div id="lab-vtRows" style="display:flex;flex-direction:column;gap:1px"><div style="color:var(--lfaint);font-size:9px">loading…</div></div>
+      <div id="lab-vtRecent" style="display:flex;flex-direction:column;gap:1px"></div>
+      <div style="color:var(--lfaint);font-size:8px">live = would-vetoed signals the bot actually took · shadow = all would-vetoes · promotion is one rule at a time, only for a rule that clearly beats random — your call</div>
+     </div>
      <div class="lb-box" style="border-color:rgba(69,224,154,.35)">
       <div class="lb-title" style="font-size:9px"><span>SHADOW TRADES</span><small id="lab-shTag"></small></div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;text-align:center">
@@ -1480,6 +1487,7 @@ function loadShadowCards() {
   loadCard(bottomLive, renderBottom, null, 'bwRows');
   loadCard(rangeLive, renderRange, null, 'rwRows');
   loadCard(deadEntryLive, renderDeadEntry, null, 'deRows');
+  loadCard(vetoLive, renderVeto, null, 'vtRows');
 }
 /* ---------------- shadow trades (trade-grade shadow) ----------------
    The bot endpoint ships with the NEXT bot build — until /shadowtrades
@@ -1887,6 +1895,38 @@ function renderDeadEntry(r) {
     (r.thresholds || []).map(t => ruleRow(`veto volM5 &lt; ${usd(t.threshold)}`, t)).join('') +
     (r.buyVelRule ? ruleRow(`veto buyVel &lt; ${r.buyVelRule.line}/min`, r.buyVelRule) : '');
   if (basis) basis.textContent = st.basis || '';
+}
+/* ---------------- killswitch veto shadow: /vetoshadow ----------------
+   All return values from the endpoint are FRACTIONS (0.5 = +50%), the
+   /resignals convention — pct() below multiplies out. */
+let vtC = { v: null, ts: 0 };
+async function vetoLive() {
+  if (vtC.v && Date.now() - vtC.ts < 30000) return vtC.v;
+  const v = await get('/vetoshadow').catch(() => null);
+  if (v && v.perRule) vtC = { v, ts: Date.now() };
+  return (v && v.perRule) ? v : null;
+}
+function renderVeto(r) {
+  const tag = el('vtTag'), rows = el('vtRows'), recEl = el('vtRecent');
+  if (!tag || !rows) return;
+  if (!r) { tag.textContent = 'NOT LIVE YET'; rows.innerHTML = ''; if (recEl) recEl.innerHTML = ''; return; }
+  const pct = x => x == null ? '—' : (x >= 0 ? '+' : '') + (x * 100).toFixed(1) + '%';
+  const sgn = x => x == null ? 'var(--lbright)' : x > 0 ? C.green : x < 0 ? C.red : 'var(--lbright)';
+  const sol = x => x == null ? '—' : (x > 0 ? '+' : '') + (+x).toFixed(4);
+  const t = r.totals || {};
+  tag.textContent = (t.records || 0) > 0 ? `${t.records} WOULD-VETOES` : 'COLLECTING';
+  const ruleRow = (id, s) => {
+    const extra = id === 'R1' && s.realizedN ? ` · realized <span style="color:${sgn(s.realizedPnlSol)};font-weight:700">${sol(s.realizedPnlSol)} SOL</span> (${s.realizedN} closes)` : '';
+    return `<div class="lb-row" style="color:#8a93bf"><span style="color:${C.bright};font-weight:700">${id}</span> ${escL(s.text || '')} — shadow <span style="color:${C.bright};font-weight:700">${s.wouldVeto ?? 0}</span> · live <span style="color:${C.bright};font-weight:700">${s.taken ?? 0}</span> · med r15 <span style="color:${sgn(s.medianR15)};font-weight:700">${pct(s.medianR15)}</span> · med r60 <span style="color:${sgn(s.medianR60)};font-weight:700">${pct(s.medianR60)}</span> (final ${s.finalized ?? 0})${extra}</div>`;
+  };
+  rows.innerHTML =
+    `<div class="lb-row" style="color:#8a93bf">would-veto signals <span style="color:${C.bright};font-weight:700">${t.wouldVetoSignals ?? 0}</span> · taken live <span style="color:${C.bright};font-weight:700">${t.takenLive ?? 0}</span> · skipped anyway <span style="color:${C.bright};font-weight:700">${t.skippedSignals ?? 0}</span> · R1 taken closes <span style="color:${C.bright};font-weight:700">${t.r1TakenCloses ?? 0}</span></div>` +
+    ['R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7', 'R8'].map(id => ruleRow(id, (r.perRule || {})[id] || {})).join('');
+  if (recEl) recEl.innerHTML = (r.recent || []).slice(0, 8).map(e => {
+    const out = e.out && e.out.done ? `r15 ${pct(e.out.r15)} · r60 ${pct(e.out.r60)}` : (e.basis === 'close' ? `realized <span style="color:${sgn(e.pnlSol)};font-weight:700">${sol(e.pnlSol)} SOL</span>` : 'tracking…');
+    const dec = e.decision === 'taken' ? `<span style="color:${C.amber};font-weight:800">TOOK IT</span>` : escL(e.decision || '');
+    return `<div class="lb-row" style="color:#8a93bf">${escL(e.ts ? ago(e.ts) : '')} <span style="color:${C.bright};font-weight:700">${escL(e.symbol || '?')}</span> ${(e.rules || []).join('+')} · ${escL(e.setup || '')} · ${dec} · ${out}</div>`;
+  }).join('') || `<div class="lb-row" style="color:#8a93bf">no would-vetoes yet</div>`;
 }
 /* ---------------- structure watch: /structurewatch ----------------
    All return values from the endpoint are FRACTIONS (0.5 = +50%), the
