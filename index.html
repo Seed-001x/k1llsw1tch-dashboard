@@ -2722,7 +2722,12 @@ if (labOn()) window.LabStart();
         const ctl = s.type === 'toggle'
           ? '<input type="checkbox" data-setkey="' + s.key + '"' + (s.value ? ' checked' : '') + '>'
           : '<input type="number" data-setkey="' + s.key + '" value="' + fmtVal(s.value) + '"' + (s.min != null ? ' min="' + s.min + '"' : '') + (s.max != null ? ' max="' + s.max + '"' : '') + ' step="' + (s.type === 'int' ? '1' : 'any') + '">';
-        h += '<div class="srow"><label>' + esc(s.label) + (s.hint ? '<small>' + esc(s.hint) + '</small>' : '') + '</label>'
+        // Slot-size rows (slot 1 = tradeSol, slot N = slotNSol) carry their
+        // ordinal so the Shape card can show only the slots that exist at
+        // the current 'Open positions' value — see applySlotRows below.
+        const slotM = /^slot(\d+)Sol$/.exec(s.key);
+        const slotRow = s.key === 'tradeSol' ? 1 : (slotM ? Number(slotM[1]) : null);
+        h += '<div class="srow"' + (slotRow ? ' data-slotrow="' + slotRow + '"' : '') + '><label>' + esc(s.label) + (s.hint ? '<small>' + esc(s.hint) + '</small>' : '') + '</label>'
           + (s.overridden ? '<span class="mod">● modified</span>' : '')
           + '<span class="envnote">env ' + fmtVal(s.envValue) + '</span>'
           + ctl
@@ -2734,6 +2739,22 @@ if (labOn()) window.LabStart();
     h += '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="sbtn primary" id="setSave">Save changes</button>'
       + '<button class="sbtn" id="setLock">Lock this device</button></div>';
     rootEl().innerHTML = h;
+
+    // Slot-size visibility: show the 'Slot N size' fields only for N <= the
+    // current 'Open positions' value (slot 1 always). Changing the positions
+    // input re-renders the visible set immediately. Hidden rows STAY in the
+    // DOM with their values untouched — hiding never clears a saved size,
+    // and Save still sees every field exactly as before.
+    const posInput = document.querySelector('[data-setkey="maxPositions"]');
+    const applySlotRows = () => {
+      const n = posInput ? Number(posInput.value) : NaN;
+      const max = Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1;
+      document.querySelectorAll('[data-slotrow]').forEach(row => {
+        row.style.display = Number(row.dataset.slotrow) <= max ? '' : 'none';
+      });
+    };
+    if (posInput) { posInput.addEventListener('input', applySlotRows); posInput.addEventListener('change', applySlotRows); }
+    applySlotRows();
 
     const haltBtn = document.getElementById('setHalt');
     if (haltBtn) haltBtn.addEventListener('click', async (e) => { e.target.disabled = true; const r = await apiPost('/halt', {}); flash(r.ok ? 'Bot halted — no new entries.' : 'Halt failed: HTTP ' + r.status); window.SettingsStart(); });
