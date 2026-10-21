@@ -548,6 +548,7 @@ td{padding:9px 8px 9px 0;border-top:1px solid var(--rule2)} td:last-child,th:las
     <button role="tab" data-v="signals" aria-selected="false"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M7.5 7.5a6.4 6.4 0 0 0 0 9M16.5 7.5a6.4 6.4 0 0 1 0 9M4.5 4.5a10.6 10.6 0 0 0 0 15M19.5 4.5a10.6 10.6 0 0 1 0 15"/></svg>Signals</button>
     <button role="tab" data-v="scans" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M3 12h18"/></svg>Scans</button>
     <button role="tab" data-v="lab" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v5.5L5.6 18a2.4 2.4 0 0 0 2.1 3.5h8.6a2.4 2.4 0 0 0 2.1-3.5L14 8.5V3"/><path d="M7.5 15h9"/></svg>LAB</button>
+    <button role="tab" data-v="fleet" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Fleet</button>
     <button role="tab" data-v="settings" id="tab-settings" aria-selected="false" hidden><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M19 12a7 7 0 0 0-.14-1.4l2-1.55-2-3.46-2.36.95A7 7 0 0 0 14.1 5.1L13.7 2.6h-3.4L9.9 5.1a7 7 0 0 0-2.4 1.44l-2.36-.95-2 3.46 2 1.55a7 7 0 0 0 0 2.8l-2 1.55 2 3.46 2.36-.95a7 7 0 0 0 2.4 1.44l.4 2.5h3.4l.4-2.5a7 7 0 0 0 2.4-1.44l2.36.95 2-3.46-2-1.55c.1-.45.14-.92.14-1.4Z"/></svg>Settings</button>
   </nav>
 
@@ -921,7 +922,7 @@ function setView(v) {
   scrollTo({ top: 0 });
   if (v === 'lab' && window.LabStart) window.LabStart();
 }
-$('tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setView(b.dataset.v); });
+$('tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.v === 'fleet') { window.open('https://k1llsw1tch-fleet.onrender.com/?api=https://k1llsw1tch-fleet.onrender.com', '_blank', 'noopener'); return; } setView(b.dataset.v); });
 $('sigSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; sigFilter = b.dataset.f; document.querySelectorAll('#sigSeg button').forEach(x => x.setAttribute('aria-pressed', x === b)); renderSignals(); });
 let scanFilter = 'misses';
 $('scanSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; scanFilter = b.dataset.f; document.querySelectorAll('#scanSeg button').forEach(x => x.setAttribute('aria-pressed', x === b)); renderScans(); });
